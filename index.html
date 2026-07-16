@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compado 数据报告</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:#f0f2f5;color:#1f2937;padding:24px}
+.container{max-width:1200px;margin:0 auto}
+.header{background:#fff;border-radius:12px;padding:20px 24px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.header h1{font-size:18px;font-weight:700;color:#111827;margin-right:auto}
+.header h1 small{font-weight:400;font-size:12px;color:#9ca3af}
+.control-group{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.control-group label{font-size:13px;color:#6b7280}
+.date-input{padding:7px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;outline:none}
+.date-input:focus{border-color:#4f46e5}
+.btn{padding:7px 18px;border:none;border-radius:6px;font-size:14px;cursor:pointer;white-space:nowrap}
+.btn-primary{background:#4f46e5;color:#fff}
+.btn-primary:hover{background:#4338ca}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.toggle-wrap{display:flex;align-items:center;gap:6px;font-size:13px;color:#6b7280;user-select:none}
+.toggle-track{position:relative;width:40px;height:22px;background:#d1d5db;border-radius:11px;cursor:pointer;transition:background .2s;flex-shrink:0}
+.toggle-track.on{background:#4f46e5}
+.toggle-track::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.toggle-track.on::after{transform:translateX(18px)}
+.toggle-label{font-weight:600;color:#374151}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px}
+.summary-card{background:#fff;border-radius:10px;padding:14px 18px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.summary-card .num{font-size:22px;font-weight:700;color:#111827;font-variant-numeric:tabular-nums}
+.summary-card .label{font-size:11px;color:#9ca3af;margin-top:2px}
+.table-wrap{background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead{background:#f9fafb}
+th{padding:10px 14px;text-align:left;font-weight:600;color:#6b7280;border-bottom:2px solid #e5e7eb;font-size:11px;white-space:nowrap}
+td{padding:10px 14px;border-bottom:1px solid #f3f4f6;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#f9fafb}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.camp-id{font-weight:600;color:#4f46e5}
+.status-msg{text-align:center;padding:60px 20px;color:#9ca3af}
+.status-msg .icon{font-size:32px;margin-bottom:8px;display:block}
+.banner{padding:10px 16px;border-radius:8px;margin-bottom:12px;font-size:13px;display:none}
+.banner.show{display:block}
+.banner.err{background:#fef2f2;color:#b91c1c}
+.banner.info{background:#eff6ff;color:#1e40af}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid #e5e7eb;border-top-color:#4f46e5;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:640px){
+  body{padding:12px}
+  .header{padding:14px 16px;flex-direction:column;align-items:stretch}
+  .header h1{margin-right:0}
+  .control-group{justify-content:space-between}
+  th,td{padding:8px 10px;font-size:12px}
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>Compado 数据报告 <small>clickid-report</small></h1>
+    <div class="control-group">
+      <label for="datePicker">📅</label>
+      <input type="date" id="datePicker" class="date-input">
+      <button id="queryBtn" class="btn btn-primary">查询</button>
+    </div>
+    <div class="toggle-wrap">
+      <span class="toggle-label" id="kwToggleLabel">看kw</span>
+      <div class="toggle-track" id="kwToggle" role="switch" aria-checked="false" tabindex="0"></div>
+    </div>
+  </div>
+
+  <div class="banner err" id="errorBanner"></div>
+  <div class="banner info" id="infoBanner"></div>
+
+  <div class="summary">
+    <div class="summary-card"><div class="num" id="sumEarnings">-</div><div class="label">总回收</div></div>
+    <div class="summary-card"><div class="num" id="sumClicks">-</div><div class="label">总转化</div></div>
+    <div class="summary-card"><div class="num" id="sumCampaigns">-</div><div class="label">Campaign 数</div></div>
+    <div class="summary-card"><div class="num" id="sumRpc">-</div><div class="label">整体 RPC</div></div>
+  </div>
+
+  <div class="table-wrap">
+    <div class="status-msg" id="statusMsg"><span class="icon">📊</span><p>选择日期后点击「查询」</p></div>
+    <div id="tableContent" style="display:none">
+      <table><thead><tr id="tableHead"></tr></thead><tbody id="tableBody"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const USER = 'gamecookies';
+  const PASS = 'i6v1NM6LvqyW09LeiSZr';
+  const API = 'https://api.compado.com/adsense/clickid-report';
+
+  const $ = id => document.getElementById(id);
+  const datePicker = $('datePicker');
+  const queryBtn = $('queryBtn');
+  const kwToggle = $('kwToggle');
+  const kwToggleLabel = $('kwToggleLabel');
+  const errorBanner = $('errorBanner');
+  const infoBanner = $('infoBanner');
+  const sumEarnings = $('sumEarnings');
+  const sumClicks = $('sumClicks');
+  const sumCampaigns = $('sumCampaigns');
+  const sumRpc = $('sumRpc');
+  const statusMsg = $('statusMsg');
+  const tableContent = $('tableContent');
+  const tableHead = $('tableHead');
+  const tableBody = $('tableBody');
+
+  // 默认日期 = 今天
+  const t = new Date();
+  datePicker.value = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+
+  // ---- 看kw 开关 ----
+  let showKw = false;
+  function setKw(on) {
+    showKw = on;
+    kwToggle.classList.toggle('on', on);
+    kwToggle.setAttribute('aria-checked', on);
+    kwToggleLabel.textContent = on ? '看kw：开' : '看kw';
+    if (window._lastData) render(window._lastData);
+  }
+  kwToggle.onclick = () => setKw(!showKw);
+  kwToggle.onkeydown = e => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); setKw(!showKw); }};
+
+  // ---- 通过 CORS proxy 请求 API ----
+  async function fetchAPI(dateStr) {
+    // 尝试多个 proxy，哪个通用哪个
+    const directURL = `${API}?user=${USER}&password=${PASS}&start_date=${dateStr}&end_date=${dateStr}`;
+    const proxies = [
+      { name: 'allorigins', build: u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` },
+      { name: 'corsproxy',  build: u => `https://corsproxy.io/?url=${encodeURIComponent(u)}` },
+    ];
+
+    // 先试 direct（本地开发时通）
+    try { const r = await fetch(directURL); if (r.ok) { infoBanner.classList.remove('show'); return await r.json(); } }
+    catch(_) {}
+
+    // 试 proxy
+    for (const p of proxies) {
+      try {
+        const r = await fetch(p.build(directURL), { signal: AbortSignal.timeout(15000) });
+        if (r.ok) {
+          infoBanner.textContent = `🌐 通过 ${p.name} 代理访问 API`;
+          infoBanner.classList.add('show');
+          const text = await r.text();
+          // allorigins 有时会把 JSON 包在 contents 里
+          try { return JSON.parse(text); } catch(_) {
+            try { return JSON.parse(JSON.parse(text).contents); } catch(_2) { throw new Error('proxy 返回异常'); }
+          }
+        }
+      } catch(_) {}
+    }
+    throw new Error('所有 CORS 代理均不可用，请稍后重试');
+  }
+
+  // ---- 翻页拉取所有数据 ----
+  async function fetchAll(dateStr) {
+    const all = [];
+    let page = 1, pageCount = 1;
+    while (page <= pageCount) {
+      const json = await fetchAPI(`${dateStr}&page=${page}`);
+      if (json.status !== 'ok') throw new Error(`API 异常: ${json.status}`);
+      pageCount = json.page_count || 0;
+      if (json.click_ids) all.push(...json.click_ids);
+      page++;
+    }
+    return all;
+  }
+
+  // ---- 数据处理 ----
+  function process(items) {
+    const cmap = new Map();
+    for (const it of items) {
+      const cid = it.campaign_id || 'unknown';
+      if (!cmap.has(cid)) cmap.set(cid, { earn:0, clk:0, kwMap: new Map() });
+      const e = cmap.get(cid);
+      e.earn += Number(it.estimated_earnings||0);
+      e.clk  += Number(it.estimated_clicks||0);
+      const kw = (it.keywords&&it.keywords.length) ? it.keywords.join(', ') : '(无关键词)';
+      if (!e.kwMap.has(kw)) e.kwMap.set(kw, { earn:0, clk:0 });
+      const ke = e.kwMap.get(kw);
+      ke.earn += Number(it.estimated_earnings||0);
+      ke.clk  += Number(it.estimated_clicks||0);
+    }
+    const camps = [];
+    for (const [cid, d] of cmap) {
+      const kws = [];
+      for (const [kw, kd] of d.kwMap) kws.push({ kw, earn:kd.earn, clk:kd.clk, rpc:kd.clk>0?kd.earn/kd.clk:0 });
+      kws.sort((a,b)=>b.earn-a.earn);
+      camps.push({ cid, earn:d.earn, clk:d.clk, rpc:d.clk>0?d.earn/d.clk:0, kws });
+    }
+    camps.sort((a,b)=>b.earn-a.earn);
+    const totalEarn = camps.reduce((s,c)=>s+c.earn,0);
+    const totalClk  = camps.reduce((s,c)=>s+c.clk,0);
+    return { camps, totalEarn, totalClk, totalRpc: totalClk>0 ? totalEarn/totalClk : 0 };
+  }
+
+  // ---- 渲染 ----
+  function render(data) {
+    window._lastData = data;
+    sumEarnings.textContent = data.totalEarn.toFixed(2);
+    sumClicks.textContent   = data.totalClk;
+    sumCampaigns.textContent = data.camps.length;
+    sumRpc.textContent      = data.totalRpc.toFixed(2);
+    statusMsg.style.display = 'none';
+    tableContent.style.display = '';
+
+    tableHead.innerHTML = showKw
+      ? '<th>Campaign ID</th><th>关键词</th><th class="num">回收</th><th class="num">转化</th><th class="num">RPC</th>'
+      : '<th>Campaign ID</th><th class="num">回收</th><th class="num">转化</th><th class="num">RPC</th>';
+
+    let html = '';
+    for (const c of data.camps) {
+      if (showKw && c.kws.length) {
+        html += `<tr><td class="camp-id">${esc(c.cid)}</td><td style="color:#9ca3af;font-style:italic">合计</td><td class="num">${c.earn.toFixed(2)}</td><td class="num">${c.clk}</td><td class="num">${c.rpc.toFixed(2)}</td></tr>`;
+        for (const kw of c.kws)
+          html += `<tr style="background:#fafafa"><td style="padding-left:28px;font-size:12px">${esc(c.cid)}</td><td>${esc(kw.kw)}</td><td class="num">${kw.earn.toFixed(2)}</td><td class="num">${kw.clk}</td><td class="num">${kw.rpc.toFixed(2)}</td></tr>`;
+      } else {
+        html += `<tr><td class="camp-id">${esc(c.cid)}</td><td class="num">${c.earn.toFixed(2)}</td><td class="num">${c.clk}</td><td class="num">${c.rpc.toFixed(2)}</td></tr>`;
+      }
+    }
+    tableBody.innerHTML = html || '<tr><td colspan="5" style="text-align:center;padding:40px;color:#9ca3af">暂无数据</td></tr>';
+  }
+
+  function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+  // ---- 查询 ----
+  async function doQuery() {
+    const ds = datePicker.value;
+    if (!ds) { errorBanner.textContent='请选择日期'; errorBanner.classList.add('show'); return; }
+    errorBanner.classList.remove('show');
+    infoBanner.classList.remove('show');
+    queryBtn.disabled = true;
+    queryBtn.innerHTML = '<span class="spinner"></span>查询中';
+    statusMsg.style.display = '';
+    statusMsg.innerHTML = '<span class="spinner" style="width:24px;height:24px;border-width:3px"></span><p>正在拉取数据...</p>';
+    tableContent.style.display = 'none';
+
+    try {
+      const items = await fetchAll(ds);
+      if (!items.length) {
+        statusMsg.innerHTML = '<span class="icon">📭</span><p>该日期暂无数据</p>';
+        sumEarnings.textContent='0.00'; sumClicks.textContent='0'; sumCampaigns.textContent='0'; sumRpc.textContent='0.00';
+        return;
+      }
+      render(process(items));
+    } catch(err) {
+      console.error(err);
+      statusMsg.innerHTML = '<span class="icon">⚠️</span><p>数据加载失败</p>';
+      errorBanner.textContent = err.message;
+      errorBanner.classList.add('show');
+    } finally {
+      queryBtn.disabled = false;
+      queryBtn.textContent = '查询';
+    }
+  }
+
+  queryBtn.onclick = doQuery;
+  datePicker.onkeydown = e => { if (e.key==='Enter') doQuery(); };
+})();
+</script>
+</body>
+</html>
