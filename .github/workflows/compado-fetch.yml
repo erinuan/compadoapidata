@@ -1,0 +1,45 @@
+name: 定时拉取 Compado 数据
+
+on:
+  schedule:
+    - cron: '0 */2 * * *'
+  workflow_dispatch:
+    inputs:
+      date:
+        description: '指定日期 (YYYY-MM-DD)，留空则拉取昨天'
+        required: false
+        default: ''
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 获取日期
+        id: date
+        run: |
+          if [ -n "${{ github.event.inputs.date }}" ]; then
+            echo "TARGET_DATE=${{ github.event.inputs.date }}" >> $GITHUB_OUTPUT
+          else
+            echo "TARGET_DATE=$(date -d 'yesterday' '+%Y-%m-%d')" >> $GITHUB_OUTPUT
+          fi
+      - name: 拉取 Compado API
+        env:
+          COMPADO_USER: ${{ secrets.COMPADO_USER }}
+          COMPADO_PASS: ${{ secrets.COMPADO_PASS }}
+        run: |
+          CUSER="${COMPADO_USER:-gamecookies}"
+          CPASS="${COMPADO_PASS:-i6v1NM6LvqyW09LeiSZr}"
+          DATE="${{ steps.date.outputs.TARGET_DATE }}"
+          echo "拉取日期: $DATE"; mkdir -p data
+          page=1; page_count=1; all_items='[]'
+          while [ $page -le $page_count ]; do
+            url="https://api.compado.com/adsense/clickid-report?user=${CUSER}&password=${CPASS}&start_date=${DATE}&end_date=${DATE}&page=${page}"
+            resp=$(curl -s "$url")
+            status=$(echo "$resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" 2>/dev/null)
+            [ "$status" != "ok" ] && [ $page -eq 1 ] && echo "API失败" && exit 0
+git add -A
+git commit -m "添加 GitHub Actions 定时拉取 workflow"
+git push https://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@github.com/erinuan/compadoapidata.git
+cd /Users/yuanli/Documents/Claude/glg/GLG/compadoapidata
+ls .github/workflows/
